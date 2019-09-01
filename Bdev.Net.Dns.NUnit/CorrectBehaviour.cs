@@ -54,8 +54,14 @@ namespace Bdev.Net.Dns.NUnit
         {
             var request = new Request {RecursionDesired = true}.WithQuestion(new Question("quaterne.com", DnsType.TXT));
             var result = Resolver.Lookup(request);
-            var l= result.Answers.Select(s => s.Record).OfType<TXTRecord>().ToList();
-            var list = result.Answers.Select(s => s.Record).OfType<TXTRecord>().Select(s => s.Value).ToList();
+            Assert.True(result.Answers.Any());
+        }
+
+        [TestCase("quaterne.com")]
+        public void RRSIGRecordsMustExist(string domain)
+        {
+            var request = new Request { RecursionDesired = true }.WithQuestion(new Question(domain, DnsType.RRSIG));
+            var result = Resolver.Lookup(request);
             Assert.True(result.Answers.Any());
         }
 

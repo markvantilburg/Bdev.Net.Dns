@@ -91,12 +91,30 @@ namespace Bdev.Net.Dns
         }
 
         /// <summary>
+        ///     Reads two bytes to form an unsigned short at the current pointer, advancing pointer
+        /// </summary>
+        /// <returns>the byte at the pointer</returns>
+        public ushort ReadUShort()
+        {
+            return (ushort)(ReadByte() << 8 | ReadByte());
+        }
+
+        /// <summary>
         ///     Reads four bytes to form a int at the current pointer, advancing pointer
         /// </summary>
         /// <returns>the byte at the pointer</returns>
         public int ReadInt()
         {
             return (ReadByte() << 24 | ReadByte() << 16 | ReadByte() << 8 | ReadByte());
+        }
+
+        /// <summary>
+        ///     Reads four bytes to form a int at the current pointer, advancing pointer
+        /// </summary>
+        /// <returns>the byte at the pointer</returns>
+        public uint ReadUInt()
+        {
+            return (uint)(ReadByte() << 24 | ReadByte() << 16 | ReadByte() << 8 | ReadByte());
         }
 
         /// <summary>
@@ -155,6 +173,18 @@ namespace Bdev.Net.Dns
 
             // and return
             return domain.ToString();
+        }
+
+        public string ReadStringValue()
+        {
+            var length = this.ReadByte();
+            var sb = new StringBuilder(length);
+            for (int i = 0; i < length; i++)
+            {
+                sb.Append(this.ReadChar());
+            }
+
+            return sb.ToString();
         }
 
         public void Seek(int offset)

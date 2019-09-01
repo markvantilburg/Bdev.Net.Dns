@@ -51,6 +51,9 @@ namespace Bdev.Net.Dns
                 case DnsType.TXT:
                     Record = new TXTRecord(pointer);
                     break;
+                case DnsType.RRSIG:
+                    Record = new RRSIGRecord(pointer);
+                    break;
                 default:
                 {
                     // move the pointer over this unrecognized record

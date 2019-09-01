@@ -19,7 +19,6 @@ namespace Bdev.Net.Dns
     /// <see cref="https://tools.ietf.org/html/rfc1035#section-3.2.2" />
     public enum DnsType
     {
-        None = 0, //INVALID
         ANAME = 1, //host address
         NS = 2, //authoritative name server
         MD = 3, //mail destination - obsolete, use MX
@@ -31,7 +30,10 @@ namespace Bdev.Net.Dns
         HINFO = 13, //host information
         MINFO = 14, //mailbox or mail list information
         MX = 15, //mail exchange
-        TXT = 16 //text strings
+        TXT = 16, //text strings
+        DNSKEY = 48, //DNSKEY DNS Security extension https://www.ietf.org/rfc/rfc4034.txt
+        RRSIG = 46, //RRSIG DNS Security extension https://www.ietf.org/rfc/rfc4034.txt
+        None = 0 //INVALID
     }
 
     /// <summary>
@@ -46,6 +48,24 @@ namespace Bdev.Net.Dns
         CS = 2, //OBSOLETE
         CH = 3, //CHAOS
         HS = 4 //HESIOD
+    }
+
+    /// <summary>
+    /// The DNSKEY, RRSIG, and DS RRs use an 8-bit number to identify the security algorithm being used.These values are stored in the "Algorithm number" field in the resource record RDATA.
+    /// </summary>
+    /// <see cref="https://www.ietf.org/rfc/rfc4034.txt"/>
+    public enum DnsSecAlgorithmTypes
+    {
+        None=0,
+        RSAMD5=1, //RFC2537
+        DH=2, //Diffie-Hellman RFC2539
+        DSA=3, //DSA/SHA-1
+        ECC=4, //Elliptic Curve
+        RSHASHA1=5, //RSA/SHA-1 RFC3110
+        Indirect=252,
+        PrivateDNS=253,
+        PrivateOID=254,
+        Reserved=255
     }
 
     /// <summary>

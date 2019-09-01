@@ -14,9 +14,11 @@
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/DarekDan/Bdev.Net.Dns</RepositoryUrl>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <ApplicationIcon></ApplicationIcon>    
-    <PackageReleaseNotes>
+    <PackageReleaseNotes>Version 1.0.6
+- added support for TXT records
+- resolved incorrect calculation of TTL
     </PackageReleaseNotes>
   </PropertyGroup>
 
