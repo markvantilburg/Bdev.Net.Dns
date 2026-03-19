@@ -55,6 +55,10 @@ Resolve a record on a DNS server
 
 ### Release history
 
+1.0.20 Added support for .Net 9.0 and added more tests for it.
+             Added support for new record types (SSHFP, TLSA, CAA, URI, NAPTR, SMIMEA) and extended the list with more popular record types.
+             Fixes a bug where the record type was sent as single octet (which breaks types exceeding 255), and added an appropriate test for it.
+
 1.0.19 Added implementation for two new record types (SRV & DS) and extends the list with more popular record types.
        Fixes a bug where the record type was sent as single octet (which breaks types exceeding 255), and added an appropriate test for it.
 

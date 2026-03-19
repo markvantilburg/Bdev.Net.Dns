@@ -15,11 +15,13 @@
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/DarekDan/Bdev.Net.Dns</RepositoryUrl>
-    <Version>1.0.19</Version>
+    <Version>1.0.20</Version>
     <ApplicationIcon></ApplicationIcon>
     <PackageReleaseNotes>
+      1.0.20 Added support for .Net 10.0
+             Added CAARecord type
       1.0.19 Added implementation for two new record types (SRV and DS) and extends the list with more popular record types.
-             Fixes a bug where the record type was sent as single octet (which breaks types exceeding 255), and added an appropriate test for it.
+      Fixes a bug where the record type was sent as single octet (which breaks types exceeding 255), and added an appropriate test for it.
       1.0.18 Bug fix for MXRecords
       Added support for AAAA records
       1.0.17 Bug fixes and added support for .Net 9.0
