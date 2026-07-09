@@ -13,7 +13,11 @@ namespace Bdev.Net.Dns
             () => new HttpClient
             {
                 // per-request timeout is enforced with a CancellationTokenSource
-                Timeout = Timeout.InfiniteTimeSpan
+                Timeout = Timeout.InfiniteTimeSpan,
+
+                // a DNS message cannot legitimately exceed 65535 bytes; anything larger
+                // is rejected by HttpClient with an HttpRequestException
+                MaxResponseContentBufferSize = ushort.MaxValue
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -29,17 +33,19 @@ namespace Bdev.Net.Dns
         public static Response LookupOverHttps(Uri dohEndpoint, Request request, int timeoutMs = 5000)
         {
             if (dohEndpoint == null) throw new ArgumentNullException(nameof(dohEndpoint));
+            if (!string.Equals(dohEndpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("DoH endpoint must use the https scheme", nameof(dohEndpoint));
             if (request == null) throw new ArgumentNullException(nameof(request));
+            if (timeoutMs <= 0)
+                throw new ArgumentOutOfRangeException(nameof(timeoutMs), timeoutMs, "Timeout must be greater than zero milliseconds");
 
             var requestMessage = request.GetMessage();
 
-            // mark this request with a unique id similar to UDP behaviour
-            var uniqueId = DateTime.Now.Ticks;
-            unchecked
-            {
-                requestMessage[0] = (byte)(uniqueId >> 8);
-                requestMessage[1] = (byte)uniqueId;
-            }
+            // RFC 8484 section 4.1: a DNS ID of 0 SHOULD be used in DoH requests
+            // to improve HTTP cache friendliness. The response ID is verified
+            // against this in DohTransferAsync.
+            requestMessage[0] = 0;
+            requestMessage[1] = 0;
 
             var responseBytes = DohTransfer(dohEndpoint, requestMessage, timeoutMs);
 
@@ -93,6 +99,9 @@ namespace Bdev.Net.Dns
                 req.Version = new Version(1, 1);
 #endif
 
+                // RFC 8484 section 4.1: the client SHOULD indicate the accepted media type
+                req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/dns-message"));
+
                 req.Content = new ByteArrayContent(requestMessage);
                 req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/dns-message");
 
@@ -119,7 +128,9 @@ namespace Bdev.Net.Dns
                     if (!resp.IsSuccessStatusCode)
                     {
                         // map 4xx/5xx to no response for consistency with existing methods
-                        throw new NoResponseException($"DoH server returned {(int)resp.StatusCode} {resp.ReasonPhrase}");
+                        // (ReasonPhrase is typically null over HTTP/2, so fall back to the enum name)
+                        var reason = string.IsNullOrEmpty(resp.ReasonPhrase) ? resp.StatusCode.ToString() : resp.ReasonPhrase;
+                        throw new NoResponseException($"DoH server returned {(int)resp.StatusCode} {reason}");
                     }
 
                     // optional: enforce content-type if present
@@ -132,6 +143,15 @@ namespace Bdev.Net.Dns
                     try
                     {
                         var bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+
+                        // a DNS message must at least contain the 12-byte header
+                        if (bytes == null || bytes.Length < 12)
+                            throw new NoResponseException("DoH server returned an empty or truncated DNS message");
+
+                        // make sure the message returned is ours (mirrors the UDP path)
+                        if (bytes[0] != requestMessage[0] || bytes[1] != requestMessage[1])
+                            throw new NoResponseException("DoH server returned a DNS message with a mismatched transaction id");
+
                         return bytes;
                     }
                     catch (NoResponseException)
