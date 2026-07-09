@@ -119,14 +119,14 @@ namespace Bdev.Net.Dns
                     if (!resp.IsSuccessStatusCode)
                     {
                         // map 4xx/5xx to no response for consistency with existing methods
-                        //throw new NoResponseException($"DoH server returned {(int)resp.StatusCode} {resp.ReasonPhrase}");
+                        throw new NoResponseException($"DoH server returned {(int)resp.StatusCode} {resp.ReasonPhrase}");
                     }
 
                     // optional: enforce content-type if present
                     if (resp.Content.Headers.ContentType != null &&
                         !string.Equals(resp.Content.Headers.ContentType.MediaType, "application/dns-message", StringComparison.OrdinalIgnoreCase))
                     {
-                        //throw new NoResponseException("DoH server returned unexpected content-type");
+                        throw new NoResponseException("DoH server returned unexpected content-type");
                     }
 
                     try
