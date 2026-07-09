@@ -53,9 +53,10 @@ Resolve a record on a DNS server
     Response response = Resolver.Lookup(request, DnsServers.IP4.First());
 
 ### DoH example
-var doh = new Uri("https://dns.google/dns-query");
-var req = new Request().WithQuestion(new Question("example.com", DnsType.ANAME));
-var resp = Resolver.LookupOverHttps(doh, req);
+
+    var doh = new Uri("https://dns.google/dns-query");
+    var req = new Request().WithQuestion(new Question("example.com", DnsType.ANAME));
+    var resp = Resolver.LookupOverHttps(doh, req);
 
 ### Release history
 
