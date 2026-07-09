@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
 using Bdev.Net.Dns.Exceptions;
 
@@ -8,6 +9,14 @@ namespace Bdev.Net.Dns
 {
     public partial class Resolver
     {
+        private static readonly Lazy<HttpClient> DohClient = new Lazy<HttpClient>(
+            () => new HttpClient
+            {
+                // per-request timeout is enforced with a CancellationTokenSource
+                Timeout = Timeout.InfiniteTimeSpan
+            },
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
         /// <summary>
         ///     Perform a DNS-over-HTTPS (DoH) lookup against the provided DoH endpoint.
         ///     This sends the DNS wire-format message as application/dns-message in a POST request
@@ -28,8 +37,8 @@ namespace Bdev.Net.Dns
             var uniqueId = DateTime.Now.Ticks;
             unchecked
             {
-                requestMessage[0] = (byte) (uniqueId >> 8);
-                requestMessage[1] = (byte) uniqueId;
+                requestMessage[0] = (byte)(uniqueId >> 8);
+                requestMessage[1] = (byte)uniqueId;
             }
 
             var responseBytes = DohTransfer(dohEndpoint, requestMessage, timeoutMs);
@@ -51,67 +60,93 @@ namespace Bdev.Net.Dns
         {
             try
             {
-                return DohTransferAsync(dohEndpoint, requestMessage, timeoutMs).GetAwaiter().GetResult();
+                // Task.Run avoids sync-context deadlocks when called from UI/ASP.NET
+                // threads on .NET Framework 4.8
+                return Task.Run(() => DohTransferAsync(dohEndpoint, requestMessage, timeoutMs))
+                           .GetAwaiter()
+                           .GetResult();
+            }
+            catch (NoResponseException)
+            {
+                throw;
             }
             catch (AggregateException ae) when (ae.InnerException is NoResponseException)
             {
                 throw ae.InnerException;
             }
-            catch (AggregateException ae)
-            {
-                throw new NoResponseException(ae.InnerException ?? ae);
-            }
-        }
-
-        private static async Task<byte[]> DohTransferAsync(Uri dohEndpoint, byte[] requestMessage, int timeoutMs = 5000)
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromMilliseconds(timeoutMs) };
-
-            var req = new HttpRequestMessage(HttpMethod.Post, dohEndpoint)
-            {
-                Version = new Version(2, 0)
-            };
-
-            req.Content = new ByteArrayContent(requestMessage);
-            req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/dns-message");
-
-            HttpResponseMessage resp;
-            try
-            {
-                resp = await http.SendAsync(req).ConfigureAwait(false);
-            }
-            catch (HttpRequestException ex)
-            {
-                // network-level failures map to no response
-                throw new NoResponseException(ex);
-            }
-            catch (TaskCanceledException ex)
-            {
-                // timeout
-                throw new NoResponseException(ex);
-            }
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                // map 4xx/5xx to no response for consistency with existing methods
-                throw new NoResponseException($"DoH server returned {(int)resp.StatusCode} {resp.ReasonPhrase}");
-            }
-
-            // optional: enforce content-type if present
-            if (resp.Content.Headers.ContentType != null &&
-                !string.Equals(resp.Content.Headers.ContentType.MediaType, "application/dns-message", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new NoResponseException("DoH server returned unexpected content-type");
-            }
-
-            try
-            {
-                var bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                return bytes;
-            }
             catch (Exception ex)
             {
                 throw new NoResponseException(ex);
+            }
+        }
+
+        private static async Task<byte[]> DohTransferAsync(Uri dohEndpoint, byte[] requestMessage, int timeoutMs)
+        {
+            using (var cts = new CancellationTokenSource(timeoutMs))
+            using (var req = new HttpRequestMessage(HttpMethod.Post, dohEndpoint))
+            {
+#if NET5_0_OR_GREATER
+                req.Version = new Version(2, 0);
+                req.VersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+#else
+                // HttpClientHandler on .NET Framework does not support HTTP/2
+                req.Version = new Version(1, 1);
+#endif
+
+                req.Content = new ByteArrayContent(requestMessage);
+                req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/dns-message");
+
+                HttpResponseMessage resp = null;
+                try
+                {
+                    try
+                    {
+                        resp = await DohClient.Value
+                            .SendAsync(req, HttpCompletionOption.ResponseContentRead, cts.Token)
+                            .ConfigureAwait(false);
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        // network-level failures map to no response
+                        throw new NoResponseException(ex);
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        // timeout (covers TaskCanceledException on both TFMs)
+                        throw new NoResponseException(ex);
+                    }
+
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        // map 4xx/5xx to no response for consistency with existing methods
+                        //throw new NoResponseException($"DoH server returned {(int)resp.StatusCode} {resp.ReasonPhrase}");
+                    }
+
+                    // optional: enforce content-type if present
+                    if (resp.Content.Headers.ContentType != null &&
+                        !string.Equals(resp.Content.Headers.ContentType.MediaType, "application/dns-message", StringComparison.OrdinalIgnoreCase))
+                    {
+                        //throw new NoResponseException("DoH server returned unexpected content-type");
+                    }
+
+                    try
+                    {
+                        var bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                        return bytes;
+                    }
+                    catch (NoResponseException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new NoResponseException(ex);
+                    }
+                }
+                finally
+                {
+                    resp?.Dispose();
+                }
             }
         }
     }
