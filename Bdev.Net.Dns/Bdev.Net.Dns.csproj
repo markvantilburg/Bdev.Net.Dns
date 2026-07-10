@@ -15,7 +15,7 @@
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/DarekDan/Bdev.Net.Dns</RepositoryUrl>
-    <Version>1.0.20</Version>
+    <Version>1.0.21</Version>
     <ApplicationIcon></ApplicationIcon>
     <PackageReleaseNotes>
       1.0.21 Add support for DoH
@@ -84,7 +84,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)'=='net481' ">
-    <AssemblyTitle>Bdev.Net.Dns .NET 4.8</AssemblyTitle>
+    <AssemblyTitle>Bdev.Net.Dns .NET 4.8.1</AssemblyTitle>
     <DefineConstants>NETFULL</DefineConstants>
   </PropertyGroup>
 
@@ -102,8 +102,15 @@
     <!-- Other .NET 9 specific settings -->
   </PropertyGroup>
 
+  <!-- .NET 10 config -->
+  <PropertyGroup Condition=" '$(TargetFramework)'=='net9.0' ">
+    <AssemblyTitle>Bdev.Net.Dns .NET 10</AssemblyTitle>
+    <DefineConstants>$(DefineConstants);NET10_0</DefineConstants>
+    <!-- Other .NET 9 specific settings -->
+  </PropertyGroup>
+
   <ItemGroup
-    Condition="'$(TargetFramework)' == 'net48' or '$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net472' or '$(TargetFramework)' == 'net462' ">
+    Condition="'$(TargetFramework)' == 'net48' or '$(TargetFramework)' == 'net481' or '$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net472' or '$(TargetFramework)' == 'net462' ">
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
